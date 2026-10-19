@@ -1,3 +1,7 @@
 .pio
 .vscode
 .DS_Store
+# JetBrains CLion + PlatformIO plugin
+.idea/
+CMakeLists.txt
+CMakeListsPrivate.txt
