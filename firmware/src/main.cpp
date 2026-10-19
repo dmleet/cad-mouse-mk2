@@ -22,10 +22,14 @@ void setup() {
 
   inputController.begin();
   ledController.begin();
-  sensorController.begin();
+  const bool sensorsOk = sensorController.begin();
   motionController.reset();
   telemetryController.begin();
 
+  if (!sensorsOk) {
+    stateMachine.changeState(&StateMachine::errorState);
+    return;
+  }
   stateMachine.changeState(&StateMachine::calibratingState);
 }
 

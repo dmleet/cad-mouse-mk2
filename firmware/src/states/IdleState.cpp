@@ -22,7 +22,9 @@ bool IdleState::handleCalibrationRequest() {
 
 void IdleState::runMotionPipeline(float dt, unsigned long now) {
   float raw[9] = {};
-  sensorController.readRaw(raw);
+  if (!sensorController.readRaw(raw)) {
+    return;  // Skip the frame rather than feed zeros into the motion maths.
+  }
 
   float motion[6] = {};
   motionController.compute(raw, sensorController.baseline(), dt, motion);
@@ -61,6 +63,12 @@ void IdleState::update() {
                                         : ((now - lastUpdateMs_) / 1000.0);
   lastUpdateMs_ = now;
   runMotionPipeline(dt, now);
+
+  if (sensorController.faulted()) {
+    stateMachine.changeState(&StateMachine::errorState);
+    return;
+  }
+
   handleSleepTransition(now);
 }
 

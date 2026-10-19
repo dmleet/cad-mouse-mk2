@@ -71,26 +71,38 @@ bool HIDController::axesReportChanged(const ReportAxes& axes) const {
          axes.rz != lastSentAxes_.rz;
 }
 
+// Only one HID IN transfer can be in flight per poll interval. TinyUSB's
+// sendReport() returns false (it does not queue) if the endpoint is still busy,
+// so at most one report is sent per call and the "last sent" copy is updated
+// only when the transfer was actually accepted. Anything not sent this tick is
+// still pending on the next call because its last-sent copy is unchanged.
+// Buttons go first: they change rarely and a dropped edge leaves the host with
+// a stuck button, whereas a dropped axes frame is replaced within a millisecond.
 bool HIDController::sendReports(const float motion[6], uint16_t buttonBits) {
   const ReportAxes axes = makeAxesReport(motion);
   const bool sendAxes = axesReportChanged(axes);
   const bool sendButtons = (buttonBits != buttonBitsSent_);
 
-  if (!usbHid_.ready() || (!sendAxes && !sendButtons)) {
+  if (!sendAxes && !sendButtons) {
     return false;
   }
-
-  if (sendAxes) {
-    usbHid_.sendReport(0x01, &axes, sizeof(axes));
-    lastSentAxes_ = axes;
+  if (!usbHid_.ready()) {
+    return false;
   }
 
   if (sendButtons) {
     ReportButtons btn{};
     btn.bits = buttonBits & 0x0003;
-    usbHid_.sendReport(0x03, &btn, sizeof(btn));
+    if (!usbHid_.sendReport(0x03, &btn, sizeof(btn))) {
+      return false;
+    }
     buttonBitsSent_ = buttonBits;
+    return true;
   }
 
+  if (!usbHid_.sendReport(0x01, &axes, sizeof(axes))) {
+    return false;
+  }
+  lastSentAxes_ = axes;
   return true;
 }

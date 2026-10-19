@@ -2,6 +2,7 @@
 
 #include "State.h"
 #include "states/CalibratingState.h"
+#include "states/ErrorState.h"
 #include "states/IdleState.h"
 #include "states/SleepState.h"
 
@@ -14,6 +15,7 @@ class StateMachine {
   static IdleState idleState;
   static SleepState sleepState;
   static CalibratingState calibratingState;
+  static ErrorState errorState;
 
  private:
   State *currentState = nullptr;

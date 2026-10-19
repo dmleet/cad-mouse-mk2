@@ -18,6 +18,9 @@ const int PIN_MAG3_LS = D8;
 // Samples for calibration offset
 const int ZERO_SAMPLES = 200;
 
+// Consecutive failed sensor reads before entering the error state
+const int SENSOR_MAX_READ_FAILURES = 50;
+
 // Gains and sign fixes
 const float GAIN_T[3] = {28.0, 28.0, 24.0};
 const float GAIN_R[3] = {18.0, 18.0, 20.0};
@@ -38,6 +41,7 @@ const int LED_COUNT = 8;
 const int LED_BRIGHTNESS = 40;
 const unsigned long LED_IDLE_COLOR = 0x00FF00;
 const unsigned long LED_CALIBRATING_COLOR = 0x0000FF;
+const unsigned long LED_ERROR_COLOR = 0xFF0000;
 
 // FSM timing
 const long IDLE_SLEEP_TIMEOUT_MS = 2 * 60 * 1000;

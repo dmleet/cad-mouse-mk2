@@ -8,8 +8,14 @@ class SensorController {
  public:
   SensorController();
 
-  void begin();
-  void readRaw(float out[9]);
+  // Returns false if any sensor failed to initialise or take its I2C address.
+  bool begin();
+
+  // Returns false and leaves `out` untouched if any sensor read failed.
+  bool readRaw(float out[9]);
+
+  // True once consecutive read failures reach Config::SENSOR_MAX_READ_FAILURES.
+  bool faulted() const;
 
   void beginCalibration();
   void updateCalibration();
@@ -20,10 +26,14 @@ class SensorController {
  private:
   static void powerOff(int pin);
   static void powerOn(int pin);
+  bool initSensor(ifx::tlx493d::TLx493D_A2B6& sensor, int powerPin,
+                  const TLx493D_IICAddressType_t* newAddress);
 
   ifx::tlx493d::TLx493D_A2B6 mag1Sensor_;
   ifx::tlx493d::TLx493D_A2B6 mag2Sensor_;
   ifx::tlx493d::TLx493D_A2B6 mag3Sensor_;
+
+  int readFailures_ = 0;
 
   bool calibrationActive_ = false;
   bool calibrationDone_ = false;

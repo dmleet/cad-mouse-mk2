@@ -16,15 +16,34 @@ void SensorController::powerOn(int pin) {
   delay(5);
 }
 
-void SensorController::begin() {
+// Powers one sensor, brings it up at the default address, and optionally moves
+// it to `newAddress`. Every library call is checked: a silent failure here
+// leaves two sensors on the same address and produces garbage motion that looks
+// like a mechanical problem.
+bool SensorController::initSensor(TLx493D_A2B6& sensor, int powerPin,
+                                  const TLx493D_IICAddressType_t* newAddress) {
+  powerOn(powerPin);
+  if (!sensor.begin(true, false, false, true)) {
+    return false;
+  }
+  if (newAddress != nullptr && !sensor.setIICAddress(*newAddress)) {
+    return false;
+  }
+  if (!sensor.setSensitivity(TLx493D_EXTRA_SHORT_RANGE_e)) {
+    return false;
+  }
+  delay(10);
+  return true;
+}
 
+bool SensorController::begin() {
   pinMode(Config::PIN_MAG1_LS, OUTPUT);
   pinMode(Config::PIN_MAG2_LS, OUTPUT);
   pinMode(Config::PIN_MAG3_LS, OUTPUT);
 
   // All three rails are pulled high in hardware, so force them all off first
-  // before bringing sensors up one-by-one for address assignment.
-
+  // before bringing sensors up one-by-one for address assignment. Each sensor
+  // reverts to the default address (A0) when power-cycled.
   powerOff(Config::PIN_MAG1_LS);
   powerOff(Config::PIN_MAG2_LS);
   powerOff(Config::PIN_MAG3_LS);
@@ -33,32 +52,35 @@ void SensorController::begin() {
   Wire.begin();
   Wire.setClock(400000);
 
-  powerOn(Config::PIN_MAG1_LS);
-  mag1Sensor_.begin(true, false, false, true);
-  mag1Sensor_.setIICAddress(TLx493D_IIC_ADDR_A2_e);
-  mag1Sensor_.setSensitivity(TLx493D_EXTRA_SHORT_RANGE_e);
-  delay(10);
+  readFailures_ = 0;
 
-  powerOn(Config::PIN_MAG2_LS);
-  mag2Sensor_.begin(true, false, false, true);
-  mag2Sensor_.setIICAddress(TLx493D_IIC_ADDR_A1_e);
-  mag2Sensor_.setSensitivity(TLx493D_EXTRA_SHORT_RANGE_e);
-  delay(10);
+  const TLx493D_IICAddressType_t mag1Addr = TLx493D_IIC_ADDR_A2_e;
+  const TLx493D_IICAddressType_t mag2Addr = TLx493D_IIC_ADDR_A1_e;
 
-  powerOn(Config::PIN_MAG3_LS);
-  mag3Sensor_.begin(true, false, false, true);
-  mag3Sensor_.setSensitivity(TLx493D_EXTRA_SHORT_RANGE_e);
-  delay(10);
+  // Order matters: each sensor must be moved off A0 before the next is powered.
+  if (!initSensor(mag1Sensor_, Config::PIN_MAG1_LS, &mag1Addr)) return false;
+  if (!initSensor(mag2Sensor_, Config::PIN_MAG2_LS, &mag2Addr)) return false;
+  if (!initSensor(mag3Sensor_, Config::PIN_MAG3_LS, nullptr)) return false;
+
+  return true;
 }
 
-void SensorController::readRaw(float out[9]) {
-  double mag1x = 0, mag1y = 0, mag1z = 0, temp1 = 0;
-  double mag2x = 0, mag2y = 0, mag2z = 0, temp2 = 0;
-  double mag3x = 0, mag3y = 0, mag3z = 0, temp3 = 0;
+bool SensorController::readRaw(float out[9]) {
+  double mag1x = 0, mag1y = 0, mag1z = 0;
+  double mag2x = 0, mag2y = 0, mag2z = 0;
+  double mag3x = 0, mag3y = 0, mag3z = 0;
 
-  mag1Sensor_.getMagneticFieldAndTemperature(&mag1x, &mag1y, &mag1z, &temp1);
-  mag2Sensor_.getMagneticFieldAndTemperature(&mag2x, &mag2y, &mag2z, &temp2);
-  mag3Sensor_.getMagneticFieldAndTemperature(&mag3x, &mag3y, &mag3z, &temp3);
+  const bool ok = mag1Sensor_.getMagneticField(&mag1x, &mag1y, &mag1z) &&
+                  mag2Sensor_.getMagneticField(&mag2x, &mag2y, &mag2z) &&
+                  mag3Sensor_.getMagneticField(&mag3x, &mag3y, &mag3z);
+
+  if (!ok) {
+    if (readFailures_ < Config::SENSOR_MAX_READ_FAILURES) {
+      readFailures_++;
+    }
+    return false;
+  }
+  readFailures_ = 0;
 
   // MAG1 = bottom, MAG2 = top left, MAG3 = top right.
   out[0] = mag1x;
@@ -70,6 +92,11 @@ void SensorController::readRaw(float out[9]) {
   out[6] = mag3x;
   out[7] = mag3y;
   out[8] = mag3z;
+  return true;
+}
+
+bool SensorController::faulted() const {
+  return readFailures_ >= Config::SENSOR_MAX_READ_FAILURES;
 }
 
 void SensorController::beginCalibration() {
@@ -95,7 +122,9 @@ void SensorController::updateCalibration() {
   lastCalibrationSampleMs_ = now;
 
   float raw[9] = {};
-  readRaw(raw);
+  if (!readRaw(raw)) {
+    return;  // Skip the sample; a failed read must not pollute the baseline.
+  }
 
   for (int i = 0; i < 9; i++) {
     calibrationSum_[i] += raw[i];

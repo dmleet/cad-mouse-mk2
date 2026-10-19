@@ -17,6 +17,11 @@ void CalibratingState::update() {
   ledController.updateSpinner();
   sensorController.updateCalibration();
 
+  if (sensorController.faulted()) {
+    stateMachine.changeState(&StateMachine::errorState);
+    return;
+  }
+
   if (sensorController.calibrationDone()) {
     stateMachine.changeState(&StateMachine::idleState);
   }
