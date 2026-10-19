@@ -1,0 +1,8 @@
+Qty,Part,Link,Notes
+1,Seeed Studio XIAO nRF52840,https://www.seeedstudio.com/Seeed-XIAO-BLE-nRF52840-p-5201.html,Mouse-side MCU. Pin-compatible drop-in for the XIAO RP2040. Onboard LiPo charger limited to 100 mA.
+1,Adafruit nRF52840 USB Key w/ TinyUF2 Bootloader (MDBT50Q-RX) - product 5199,https://www.adafruit.com/product/5199,PC-side dongle. Cased USB-A stick. PlatformIO board raytac_mdbt50q_rx. Buy the Adafruit SKU only; bare Raytac modules ship without the bootloader.
+1,"LiPo battery, 3.7 V, 1000-1500 mAh, JST-PH 2.0 connector",https://www.adafruit.com/product/258,Capacity TBD after measuring active/sleep current on the bench (roadmap 6b). Must fit in the base cavity alongside the ballast.
+1,5 V boost converter (e.g. Adafruit MiniBoost TPS61023),https://www.adafruit.com/product/4654,Powers the 8x SK6812 LED ring from the battery. Not needed if the ring is dropped in the wireless build.
+1,"LiPo charger > 100 mA (e.g. TP4056 / MCP73831 module), optional",,Only if the XIAO's 100 mA onboard charger is too slow. Upstream issue 22 author has a schematic for a replacement MCU adapter with faster charging and a 5 V rail.
+1,Replacement MCU adapter PCB with battery / boost / charger,,Design TBD (roadmap 6c). Replaces the stock MCU adapter.
+1,Slide or push power switch (optional),,Hard-off for storage; the real sleep state (roadmap 6b) covers day-to-day.
